@@ -1,0 +1,40 @@
+# =============================================
+# gaming-publisher-analysis .gitignore
+# =============================================
+
+# Data files (too large for GitHub)
+*.csv
+*.tsv
+*.parquet
+*.json
+data/exports/*.csv
+
+# Environment & secrets
+.env
+.venv/
+env/
+__pycache__/
+*.pyc
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# OS files
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE & editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.bak
+*.log
