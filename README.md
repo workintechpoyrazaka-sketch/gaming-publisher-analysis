@@ -1,136 +1,202 @@
-# 🎮 Gaming Publisher Analysis: Cross-Platform Market Intelligence
+# Gaming Publisher Analysis: Who Dominates, How, and Why
 
-A data-driven competitive intelligence analysis of game publishers across **Steam**, **PlayStation**, and **Xbox** platforms, examining **131,890+ games** to uncover platform dominance patterns, genre specializations, and pricing strategies.
+**Analyzing 131,884 games across Steam, PlayStation, and Xbox to uncover publisher strategies, pricing models, and the structural divide between indie and major publishers.**
 
-**Key Question:** Which publishers dominate which platforms, and how do their pricing and genre strategies impact market share?
+![Top 20 Publishers by Platform](charts/top20_dashboard.png)
 
 ---
 
 ## Key Findings
 
-> *Findings will be added as analysis progresses through Sprint 3*
+**1. No single publisher dominates any platform.** The #1 known publisher on Steam (Big Fish Games) holds just 0.52% market share. Gaming publishing is radically fragmented.
 
-<!-- After Sprint 3, replace with real findings + chart screenshots like:
-![Market Share by Platform](presentation/charts/market_share.png)
-**Finding 1:** Top 5 publishers control X% of multi-platform titles while indie publishers...
--->
+**2. Two winning business models exist side by side.** AAA publishers (EA, Ubisoft, Sega) go tri-platform at $22-30/game. Volume publishers (Eastasiasoft, Ratalaika) flood PS/Xbox with budget titles at $2-8/game. Eastasiasoft (1,356 games) is bigger than EA (684) by raw volume.
+
+**3. 96.6% of indie publishers are locked to a single platform** with an average of 1.5 games and $7.91 pricing. The platform gap — not price — is the clearest structural divide.
+
+**4. The Scissors Pattern (2015-2024):** Indie publisher count grew 8.5x while prices stayed flat at ~$8. Major publishers grew output 5.7x AND raised prices 46%. The price gap doubled from $7.47 to $14.54.
+
+**5. Each platform has a pricing personality.** Steam = 82% budget. Xbox = mid-tier dominated. PlayStation = unique volume-budget model with trophy publisher ecosystem.
+
+![The Scissors Pattern](charts/scissors_pattern.png)
 
 ---
 
-## Dataset
+## Project Overview
 
-| Source | Records | Description |
-|--------|---------|-------------|
-| Steam Games | 98,249 | Game metadata: publishers, developers, genres, release dates |
-| PlayStation Games | 23,151 | PS4, PS5, PS3, PS Vita game catalog |
-| Xbox Games | 10,490 | Xbox game catalog |
-| Price Tables (3 platforms) | 148,000+ | Pricing in USD, EUR, GBP, JPY, RUB |
-| **Total** | **131,890+ games** | **Cross-platform publisher intelligence** |
-
-**Source:** Kaggle — Gaming Profiles 2025 (60GB dataset)
+| | |
+|---|---|
+| **Dataset** | Kaggle "Gaming Profiles 2025" — 60GB, 3 platforms |
+| **My Scope** | Publisher Analysis (Task #5 of 6-member team project) |
+| **Games Analyzed** | 131,884 across Steam (98K), PlayStation (23K), Xbox (10K) |
+| **Publishers Mapped** | 51,193 unique publishers |
+| **Platform** | BigQuery (SQL) → Python (Pandas/Plotly/scipy/scikit-learn) |
+| **Approach** | SQL-first — 80% of analysis in BigQuery, Python for stats + viz |
 
 ---
 
 ## Methodology
 
-### Data Pipeline: Bronze → Silver → Gold
+### Pipeline: Bronze → Silver → Gold → Python
 
 ```
-Raw CSVs → BigQuery Upload → Type Conversion & Cleaning (Bronze)
-    → Cross-Platform Joins & Publisher Parsing (Silver)
-        → Market Analysis, Statistics & Visualization (Gold)
+Raw CSVs ──→ Bronze (clean) ──→ Silver (join & parse) ──→ Gold (analyze) ──→ Python (stats & viz)
+  3 platforms    6 tables          4 tables                 9 tables          10 charts
+  131,884 rows   type validation    publisher parsing        market share      t-test
+                 null handling      price deduplication      pricing tiers     K-means
+                 row filtering      platform unification     genre parsing     Plotly
 ```
 
-**Bronze (Data Cleaning):**
-CSV ingestion into Google BigQuery. Type conversions (FLOAT64 for prices, DATE for dates). Name standardization with LOWER(TRIM()). Null handling with documented reasoning for each decision.
+### Bronze Layer — Clean & Validate
+Uploaded raw CSVs from three platforms into BigQuery. Handled Steam's 179MB file by splitting into two uploads. Validated schemas via `INFORMATION_SCHEMA`, filtered 1 bad PS row (CSV parse error), dropped 3 titleless Steam rows (0.003%). Key decision: **NULL prices kept** — null means free-to-play or unavailable, not $0.
 
-**Silver (Data Integration):**
-Cross-platform MASTER_PUBLISHERS table unifying all game and price data. Publisher name parsing from Python-style list strings using BigQuery's SPLIT and UNNEST functions. Platform tagging for comparative analysis.
+### Silver Layer — Unify, Join & Parse
+The core engineering challenge. Four tables built in sequence:
 
-**Gold (Analysis & Insight):**
-Seven SQL-based analyses covering market share, platform strategy, pricing intelligence, genre specialization, indie vs major publishers, and release timing patterns. Statistical hypothesis testing with scipy. Visualization with Plotly. Publisher tier clustering with K-means.
+1. **silver_unified_games** — `UNION ALL` across 3 platforms with platform tagging (131,884 rows)
+2. **silver_games_with_prices** — `LEFT JOIN` with latest price per game via `ROW_NUMBER()` partitioned by gameid
+3. **silver_games_publishers_parsed** — Publisher list parsing using `REGEXP_REPLACE` + `SPLIT` + `UNNEST` (137,204 rows — games with multiple publishers exploded)
+4. **silver_master_publishers** — One row per publisher with aggregated metrics (51,193 publishers)
 
-### Analysis Framework
+**The parsing problem:** Publisher fields stored as Python-style list strings like `['Activision']` or `["Bethesda's Studio"]` with mixed single/double quoting. A naive comma split breaks on company names containing commas (e.g., "Co., Ltd."). Solution: `REGEXP_REPLACE` converts the quote-comma-quote delimiter to a safe `|||` separator before `SPLIT`.
 
-1. **Market Share** — Publisher game counts and percentage share by platform
-2. **Platform Strategy** — Multi-platform vs single-platform publisher segmentation
-3. **Pricing Intelligence** — Average pricing by publisher tier, platform, and genre
-4. **Genre Specialization** — Publisher-genre dominance mapping and diversity index
-5. **Indie vs Major** — Survival analysis, platform dependency, pricing gaps
-6. **Release Patterns** — Publisher timing strategies and pricing trends
-7. **Statistical Validation** — Hypothesis testing for pricing strategy differences
+### Gold Layer — Deep Analysis
+Seven analysis queries building 9 tables:
+
+| # | Table | Question Answered |
+|---|-------|-------------------|
+| 1 | gold_market_share | Who dominates which platform, and by how much? |
+| 2 | gold_platform_strategy | Do multi-platform publishers outperform single-platform ones? |
+| 3 | gold_pricing_strategy | How do publishers price differently across platforms? |
+| 4 | gold_publisher_genre_parsed + gold_genre_specialization | Which genres does each publisher specialize in? |
+| 5 | gold_indie_vs_major | How do 49K indie publishers compare to 105 majors? |
+| 6 | gold_top20_dashboard | Complete profile of the 20 largest publishers |
+| 7 | gold_release_patterns | How has the market changed over time? |
+
+**Key design decisions:**
+- Publisher tiers defined by game count: major (100+), mid-tier (10-99), indie (1-9) — data-driven proxy, no external classification available
+- Price tiers: budget (<$10), mid ($10-30), premium (>$30)
+- Genre parsing reused the same `REGEXP_REPLACE` pattern from publisher parsing — one proven technique, two applications
+- `unknown` publishers excluded from tier analysis but tracked separately as self-published segment
+
+### Python Phase — Statistics & Visualization
+Built in Google Colab with zero prior Python experience (learned in-flow during the project):
+
+- **10 Plotly visualizations** — market share bars, platform strategy comparison, pricing distribution, genre heatmap, indie vs major divide, scissors pattern, top 20 dashboard, t-test distribution, K-means scatter, elbow method
+- **Welch's t-test** — confirmed the ~$8 major-indie price gap is statistically significant (p < 0.001)
+- **K-Means clustering** (K=4) — independently validated the AAA vs Volume publisher archetypes discovered in SQL
+
+---
+
+## Visualizations
+
+### Market Share — No Publisher Dominates
+![Market Share Top 10](charts/market_share_top10.png)
+
+### Platform Strategy — Multi-Platform Publishers Outperform
+![Platform Strategy](charts/platform_strategy_comparison.png)
+
+### Pricing by Platform — Each Platform Has a Personality
+![Pricing Distribution](charts/pricing_by_platform.png)
+
+### Genre Specialization — Specialists vs Generalists
+![Genre Heatmap](charts/genre_heatmap.png)
+
+### Indie vs Major — The Structural Divide
+![Indie vs Major](charts/indie_vs_major.png)
+
+### Hypothesis Test — Price Difference is Real
+![T-Test Distribution](charts/price_distribution_ttest.png)
+
+### K-Means Clustering — Two Publisher Archetypes Confirmed
+![K-Means Clusters](charts/kmeans_clusters.png)
+
+---
+
+## Repository Structure
+
+```
+gaming-publisher-analysis/
+├── README.md
+├── bronze/
+│   ├── 01_bronze_ps.sql
+│   ├── 02_bronze_steam.sql
+│   └── 03_bronze_xbox.sql
+├── silver/
+│   ├── 01_unified_games.sql
+│   ├── 02_games_with_prices.sql
+│   ├── 03_publisher_parsed.sql
+│   ├── 04_master_publishers.sql
+│   └── 05_validation.sql
+├── gold/
+│   ├── 01_market_share.sql
+│   ├── 02_platform_strategy.sql
+│   ├── 03_pricing_strategy.sql
+│   ├── 04_genre_specialization.sql
+│   ├── 05_indie_vs_major.sql
+│   ├── 06_publisher_dashboard.sql
+│   └── 07_release_patterns.sql
+├── notebooks/
+│   └── publisher_analysis.ipynb
+├── charts/
+│   ├── market_share_top10.png
+│   ├── platform_strategy_comparison.png
+│   ├── pricing_by_platform.png
+│   ├── genre_heatmap.png
+│   ├── indie_vs_major.png
+│   ├── scissors_pattern.png
+│   ├── top20_dashboard.png
+│   ├── price_distribution_ttest.png
+│   ├── kmeans_clusters.png
+│   └── elbow_method.png
+└── docs/
+    └── cleaning_decisions.md
+```
+
+## How to Reproduce
+
+1. **BigQuery:** Create a dataset in Google BigQuery. Upload raw CSVs from the [Kaggle Gaming Profiles 2025](https://www.kaggle.com/) dataset.
+2. **Bronze:** Run `bronze/` SQL files in order (01→03) to create cleaned base tables.
+3. **Silver:** Run `silver/` SQL files in order (01→05). File 05 is validation — run it to confirm row counts match.
+4. **Gold:** Run `gold/` SQL files in order (01→07). Some queries reference other Gold tables, so order matters.
+5. **Python:** Export Gold tables as CSV. Open `notebooks/publisher_analysis.ipynb` in Google Colab, upload the CSVs, and run all cells.
+
+**BigQuery project:** `fast-archive-478610-v8` | **Dataset:** `gaming_project`
 
 ---
 
 ## Tech Stack
 
-| Layer | Tool | Purpose |
-|-------|------|---------|
-| Database | Google BigQuery | Data warehouse, SQL analysis |
-| Data Cleaning | BigQuery SQL | Type conversions, standardization, null handling |
-| Data Integration | BigQuery SQL | Cross-platform joins, publisher parsing |
-| Analysis | BigQuery SQL + Python (Pandas) | Market analysis, aggregations, statistical tests |
-| Visualization | Plotly | Interactive charts for analysis and presentation |
-| Statistical Tests | scipy.stats | Hypothesis testing (t-tests, chi-square) |
-| Clustering | scikit-learn | Publisher tier segmentation (K-means) |
-| Version Control | Git / GitHub | Code management, portfolio documentation |
-| Presentation | Google Slides | Final stakeholder deliverable |
-
----
-
-## Project Structure
-
-```
-bronze/          → Raw data cleaning SQL scripts (Sprint 1)
-silver/          → Master table creation & cross-platform joins (Sprint 2)
-gold/            → Analysis queries — 7 analytical perspectives (Sprint 3)
-notebooks/       → Python analysis, visualization & statistical tests (Sprint 3)
-presentation/    → Final slides & exported chart assets (Sprint 4)
-docs/            → Methodology, cleaning decisions & findings documentation
-```
-
----
-
-## How to Reproduce
-
-1. Download the [Gaming Profiles 2025](https://www.kaggle.com/datasets/artyomkruglov/gaming-profiles-2025-steam-playstation-xbox) dataset from Kaggle
-2. Upload CSV files to Google BigQuery (games and prices tables for PS, Steam, Xbox)
-3. Run SQL scripts in order: `bronze/01` → `02` → `03` → `silver/01` → ... → `05` → `gold/01` → ... → `07`
-4. Export Gold query results as CSVs to `data/exports/`
-5. Open Jupyter notebooks in `notebooks/` for visualizations and statistical analysis
-6. Charts are exported to `presentation/charts/` for use in the final presentation
+- **Google BigQuery** — SQL analysis, window functions, REGEXP parsing, CTEs
+- **Python / Pandas** — data manipulation and aggregation
+- **Plotly** — interactive, publication-quality visualizations
+- **scipy.stats** — Welch's t-test for hypothesis testing
+- **scikit-learn** — K-Means clustering for publisher segmentation
+- **Git / GitHub** — version control with atomic commits
+- **Google Colab** — notebook execution environment
 
 ---
 
 ## What I Learned
 
-> *This section will be completed after the project — honest reflections on the journey.*
+This project was my first time writing Python — I learned Pandas, Plotly, scipy, and scikit-learn inside the project itself, not from tutorials. Here's what stood out:
 
-<!-- After Mar 7, fill in:
-### Challenges
-- [e.g., "Learned Python from zero inside a live project with real deadlines"]
-- [e.g., "Parsing nested string lists in SQL required creative SPLIT/UNNEST approach"]
+- **SQL-first pays off.** Doing 80% of the analysis in BigQuery before touching Python meant I only needed Python for what SQL genuinely can't do: statistical tests, ML clustering, and interactive charts. Play to your strongest skill first.
 
-### Skills Acquired During This Project
-- [e.g., "Pandas for data manipulation — learned in context, not from tutorials"]
-- [e.g., "Plotly for professional data visualization"]
-- [e.g., "Hypothesis testing with scipy.stats"]
+- **Edge cases at 1% silently corrupt your analysis.** The publisher parsing bug that broke on "Co., Ltd." affected ~1% of rows. If I hadn't tested on ugly data, my publisher counts would have been quietly wrong throughout every Gold query.
 
-### What I'd Do Differently
-- [e.g., "Would allocate more time for data quality audit in Bronze layer"]
--->
+- **Build techniques that transfer.** The REGEXP parsing pattern I built for publishers worked identically for genres — same Python-style list format, same solution. One proven technique, two applications.
+
+- **Tier definitions are analytical choices, not facts.** No external classification existed for "major" vs "indie" publishers. I defined thresholds (100+ / 10-99 / 1-9 games), validated them against known publishers, and documented the reasoning. Owning your definitions is part of the analysis.
+
+- **The most surprising finding is usually the most valuable.** Eastasiasoft being bigger than EA by game count — nobody would predict that. The scissors pattern — prices diverging while volume converges — tells a story that summary statistics alone would miss.
 
 ---
 
 ## Author
 
-**Poi** — Data Analyst | Mathematics Student
-*Built as part of Workintech Data Analyst → Data Scientist program (2025–2026)*
+**Poi** — Data Analyst | Workintech Data Science Program
 
-<!-- Add your links when ready:
-[LinkedIn](your-link) | [GitHub](your-link) | [Portfolio](your-link)
--->
+*This project is part of a 6-member team analysis of the Gaming Profiles 2025 dataset. The full team covers player behavior, game success metrics, genre trends, review sentiment, publisher strategy, and cross-cutting synthesis.*
 
 ---
-
-*This project analyzes publicly available gaming platform data for educational and portfolio purposes.*
