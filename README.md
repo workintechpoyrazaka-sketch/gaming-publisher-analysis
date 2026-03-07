@@ -41,10 +41,11 @@
 
 ```
 Raw CSVs ──→ Bronze (clean) ──→ Silver (join & parse) ──→ Gold (analyze) ──→ Python (stats & viz)
-  3 platforms    6 tables          4 tables                 9 tables          10 charts
+  3 platforms    6 tables          4 tables                 9 tables          10 charts + 3 ML models
   131,884 rows   type validation    publisher parsing        market share      t-test
                  null handling      price deduplication      pricing tiers     K-means
-                 row filtering      platform unification     genre parsing     Plotly
+                 row filtering      platform unification     genre parsing     Random Forest
+                                                                              Logistic Regression
 ```
 
 ### Bronze Layer — Clean & Validate
@@ -85,6 +86,22 @@ Built in Google Colab with zero prior Python experience (learned in-flow during 
 - **10 Plotly visualizations** — market share bars, platform strategy comparison, pricing distribution, genre heatmap, indie vs major divide, scissors pattern, top 20 dashboard, t-test distribution, K-means scatter, elbow method
 - **Welch's t-test** — confirmed the ~$8 major-indie price gap is statistically significant (p < 0.001)
 - **K-Means clustering** (K=4) — independently validated the AAA vs Volume publisher archetypes discovered in SQL
+
+### Supervised Machine Learning
+
+**Random Forest Classifier** — Predicts publisher tier (major/mid/indie) from average price, platform count, and genre diversity. Uses `class_weight='balanced'` to handle extreme class imbalance (49K+ indies vs ~105 majors). Feature importance reveals which observable metric is the strongest predictor of publisher scale.
+
+![Random Forest Confusion Matrix](charts/rf_confusion_matrix.png)
+![Feature Importance](charts/rf_feature_importance.png)
+
+**Logistic Regression** — Predicts whether a publisher will operate on multiple platforms or stay single-platform. Features: game count, average price, genre diversity (platform count excluded to prevent data leakage). Coefficients show direction: positive pushes toward multi-platform, negative toward single.
+
+![Logistic Regression Confusion Matrix](charts/lr_confusion_matrix.png)
+![Logistic Regression Coefficients](charts/lr_coefficients.png)
+
+**ML Story Arc:** K-Means (unsupervised) found 4 natural publisher clusters → Random Forest (supervised) proved tiers are predictable from observable features → Logistic Regression (supervised) identified what drives the single→multi-platform transition.
+
+![Model Comparison](charts/supervised_model_comparison.png)
 
 ---
 
@@ -148,7 +165,12 @@ gaming-publisher-analysis/
 │   ├── top20_dashboard.png
 │   ├── price_distribution_ttest.png
 │   ├── kmeans_clusters.png
-│   └── elbow_method.png
+│   ├── elbow_method.png
+│   ├── rf_confusion_matrix.png
+│   ├── rf_feature_importance.png
+│   ├── lr_confusion_matrix.png
+│   ├── lr_coefficients.png
+│   └── supervised_model_comparison.png
 └── docs/
     └── cleaning_decisions.md
 ```
@@ -171,7 +193,7 @@ gaming-publisher-analysis/
 - **Python / Pandas** — data manipulation and aggregation
 - **Plotly** — interactive, publication-quality visualizations
 - **scipy.stats** — Welch's t-test for hypothesis testing
-- **scikit-learn** — K-Means clustering for publisher segmentation
+- **scikit-learn** — K-Means clustering, Random Forest classification, Logistic Regression
 - **Git / GitHub** — version control with atomic commits
 - **Google Colab** — notebook execution environment
 
@@ -190,6 +212,8 @@ This project was my first time writing Python — I learned Pandas, Plotly, scip
 - **Tier definitions are analytical choices, not facts.** No external classification existed for "major" vs "indie" publishers. I defined thresholds (100+ / 10-99 / 1-9 games), validated them against known publishers, and documented the reasoning. Owning your definitions is part of the analysis.
 
 - **The most surprising finding is usually the most valuable.** Eastasiasoft being bigger than EA by game count — nobody would predict that. The scissors pattern — prices diverging while volume converges — tells a story that summary statistics alone would miss.
+
+- **Unsupervised → supervised is a powerful validation loop.** K-Means found natural clusters without labels. Random Forest proved those tiers are predictable from features. Logistic Regression identified which features drive the key business decision (single vs multi-platform). Each model answered a different question about the same data.
 
 ---
 
