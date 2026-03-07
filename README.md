@@ -126,6 +126,8 @@ Built in Google Colab with zero prior Python experience (learned in-flow during 
 ![T-Test Distribution](charts/price_distribution_ttest.png)
 
 ### K-Means Clustering — Two Publisher Archetypes Confirmed
+![Elbow Method](charts/elbow_method.png)
+
 ![K-Means Clusters](charts/kmeans_clusters.png)
 
 ---
