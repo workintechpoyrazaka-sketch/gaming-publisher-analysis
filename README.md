@@ -173,17 +173,24 @@ gaming-publisher-analysis/
 │   ├── lr_confusion_matrix.png
 │   ├── lr_coefficients.png
 │   └── supervised_model_comparison.png
+├── presentation/
+│   └── publisher_analysis_final.pdf
 └── docs/
-    └── cleaning_decisions.md
+    ├── cleaning_decisions.md
+    ├── methodology.md
+    └── findings_summary.md
 ```
 
 ## How to Reproduce
 
-1. **BigQuery:** Create a dataset in Google BigQuery. Upload raw CSVs from the [Kaggle Gaming Profiles 2025](https://www.kaggle.com/) dataset.
+1. **BigQuery:** Create a dataset in Google BigQuery. Upload raw CSVs from the [Kaggle Gaming Profiles 2025](https://www.kaggle.com/datasets/artyomkruglov/gaming-profiles-2025-steam-playstation-xbox) dataset.
 2. **Bronze:** Run `bronze/` SQL files in order (01→03) to create cleaned base tables.
 3. **Silver:** Run `silver/` SQL files in order (01→05). File 05 is validation — run it to confirm row counts match.
 4. **Gold:** Run `gold/` SQL files in order (01→07). Some queries reference other Gold tables, so order matters.
 5. **Python:** Export Gold tables as CSV. Open `notebooks/publisher_analysis.ipynb` in Google Colab, upload the CSVs, and run all cells.
+6. **Presentation:** The final slide deck is available at `presentation/publisher_analysis_final.pdf`.
+
+**Detailed methodology:** [`docs/methodology.md`](docs/methodology.md) | **Key findings for business audience:** [`docs/findings_summary.md`](docs/findings_summary.md)
 
 **BigQuery project:** `fast-archive-478610-v8` | **Dataset:** `gaming_project`
 
